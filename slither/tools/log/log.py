@@ -7,9 +7,14 @@ from slither.core.cfg.node import Node
 from slither.core.declarations.function import Function
 from slither.core.declarations.contract import Contract
 
+logging.basicConfig()
 logger = logging.getLogger("Slither-Log")
+logger.setLevel(logging.INFO)
 
-# pylint: disable=too-few-public-methods
+ACCEPTABLE_TYPES = {"uint", "addr", "stri", "bool", "byte"}
+BAD_FUNCTION_NAMES = {"constructor", "slitherConstructorVariables", "slitherConstructorConstantVariables"}
+        
+
 class SolFile:
     def __init__(self, contract: Contract):
         self.contract = contract
@@ -19,9 +24,7 @@ class SolFile:
         self.margin = 0
 
 
-# pylint: disable=too-few-public-methods,too-many-instance-attributes,dangerous-default-value
 class SlitherLog:
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         slither: Slither,
@@ -37,7 +40,6 @@ class SlitherLog:
         self.blacklisted_functions = set(blacklisted_functions)
         self.whitelisted_contracts = set(whitelisted_contracts)
         self.blacklisted_contracts = set(blacklisted_contracts)
-        self.acceptable_types = set(["uint", "addr", "stri", "bool", "byte"])
         self.diffs = ""
 
     @staticmethod
@@ -62,18 +64,15 @@ class SlitherLog:
         start = function.entry_point.source_mapping.start
         while True:
             char = file.old_str[start + file.margin]
-            if char not in set(["{", "\r", "\n", " "]):
+            if char not in {"{", "\r", "\n", " "}:
                 break
             file.margin += 1
 
     @staticmethod
     def _is_bad_function(function: Function, contract: Contract) -> bool:
         """Filters out invalid functions"""
-        bad_function_names = set(
-            ["constructor", "slitherConstructorVariables", "slitherConstructorConstantVariables"]
-        )
         return (
-            function.name in bad_function_names
+            function.name in BAD_FUNCTION_NAMES
             or function.canonical_name[: len(function.contract.name)]
             != contract.name  # function belongs to an imported contract
             or function.contract_declarer.contract_kind
@@ -107,17 +106,16 @@ class SlitherLog:
         functions.sort(reverse=True)
         return functions
 
-    # pylint: disable=bare-except
     def _convert_params(self, function: Function) -> list[str]:
         """Sorts params based on type and converts invalid types to be console.log compatible"""
         converted_params = []
         for param in function.parameters:
             try:
                 param_type = param.type.name[:4]
-            except:  # param is an array
+            except AttributeError:  # param is an array
                 param_type = "invalid_type"
 
-            if param_type in self.acceptable_types:
+            if param_type in ACCEPTABLE_TYPES:
                 if param_type == "byte":
                     if (
                         len(param.type.name)
@@ -160,7 +158,6 @@ class SlitherLog:
 
         return f"console.log('Enter {function.canonical_name}{params_string}'{params_values});{overflow_values}"
 
-    # pylint: disable=too-many-arguments,too-many-locals
     def _generate_return_string(
         self, node: Node, num_nodes: int, function: Function, source_code: str, file_margin: int
     ) -> str:
@@ -186,7 +183,7 @@ class SlitherLog:
         return_values = []
 
         for i, exp in enumerate(sub_expressions):
-            if return_types[i] in self.acceptable_types:
+            if return_types[i] in ACCEPTABLE_TYPES:
                 if "byte" == return_types[i]:
                     if len(function.return_type[0].name) == 5 or not self.convert_bytes:
                         return_values.append("'unlogged_bytes'")
@@ -252,7 +249,6 @@ class SlitherLog:
         sub_expressions.append(expression[left_pointer:])
         return sub_expressions
 
-    # pylint: disable=pointless-statement
     @staticmethod
     def _get_return_types(function: Function) -> list[str]:
         """Returns a list of return types, separating out arrays"""
@@ -261,11 +257,11 @@ class SlitherLog:
             try:
                 item.type.type  # will throw error if not an array type
                 return_types.append("array")
-            # pylint: disable=bare-except
-            except:
+            except AttributeError:
                 try:
                     return_types.append(item.type[:4])
-                except:
+                except AttributeError:
+                    # Triggers for complex types such as an ERC20 or other external contract
                     return_types.append("unloggable_type")
 
         return return_types

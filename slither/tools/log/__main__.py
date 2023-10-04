@@ -6,7 +6,7 @@ from pathlib import Path
 from crytic_compile import cryticparser
 
 from slither import Slither
-from slither.tools.slither_log.slither_log import SlitherLog
+from slither.tools.log.log import SlitherLog
 
 logging.basicConfig()
 logger = logging.getLogger("Slither-Log")
@@ -24,11 +24,11 @@ def parse_args() -> argparse.Namespace:
             "\nTo generate a git patch for a solidity file:\n"
             + "\tslither-log $TARGET\n"
             + "To apply a patch (from same directory slither-log was called in):\n"
-            + "\tgit apply --whitespace=fix crytic-export/slither-log/$PATCHFILE\n"
+            + "\tgit apply --ignore-whitespace crytic-export/slither-log/$PATCHFILE\n"
             + "To remove a patch:\n"
             + "\tgit apply -R crytic-export/slither-log/$PATCHFILE\n"
             + "It's recommended to remove a patch before making edits, otherwise the patch will no longer be valid for removal.\n"
-            + "If patch no longer applies, remove portions from the edited file from the patch file and it will still work on un-edited files\n"
+            + "If patch no longer applies, remove portions from the edited file from the patch file and it will still work on un-edited files.\n"
             + "slither-log --help for more options"
         ),
     )
@@ -50,7 +50,7 @@ def parse_args() -> argparse.Namespace:
             "Hardhat console can't easily print bytes. \n"
             + "This will cast any static bytes arrays to bytes32, then to uint256 to allow for easier logging.\n"
             + "User can convert back to the appropriate bytes size manually if desired.\n"
-            + "Default behavior is to not log any bytes. This option does not affect dynamic bytes arrays."
+            + "Default behavior is to not log any bytes. This option does not allow for logging of dynamic bytes arrays."
         ),
         default=False,
         action="store_true",
@@ -58,28 +58,28 @@ def parse_args() -> argparse.Namespace:
 
     group_patching.add_argument(
         "--whitelist-function",
-        help="Edit only specified function(s). Call several times to add more than one function. Use canonical name - Contract.functionName(paramTypes)",
+        help="Edit only specified function(s). Call several times to add more than one function. Use canonical name - Contract.functionName(paramTypes).",
         default=[],
         action="append",
     )
 
     group_patching.add_argument(
         "--blacklist-function",
-        help="Exclude function(s) from editing. Call several times to add more than one function. Use canonical name - Contract.functionName(paramTypes)",
+        help="Exclude function(s) from editing. Call several times to add more than one function. Use canonical name - Contract.functionName(paramTypes).",
         default=[],
         action="append",
     )
 
     group_patching.add_argument(
         "--whitelist-contract",
-        help="Edit only specified contract(s). Call several times to add more than one contract",
+        help="Edit only specified contract(s). Call several times to add more than one contract.",
         default=[],
         action="append",
     )
 
     group_patching.add_argument(
         "--blacklist-contract",
-        help="Exclude contract(s) from editing. Call several times to add more than one contract",
+        help="Exclude contract(s) from editing. Call several times to add more than one contract.",
         default=[],
         action="append",
     )
@@ -113,7 +113,7 @@ def main() -> None:
         f.write(slither_log.diffs)
 
     if args.force_patch:
-        os.system(f"git apply --whitespace=fix {export}/{filename}")
+        os.system(f"git apply --ignore-whitespace {export}/{filename}")
 
 
 if __name__ == "__main__":
